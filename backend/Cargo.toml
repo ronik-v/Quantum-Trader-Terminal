@@ -1,0 +1,16 @@
+[package]
+name = "terminal_q_backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8.1"
+tokio = { version = "1.36", features = ["full"] }
+sqlx = { version = "0.8.3", features = ["postgres", "runtime-tokio-native-tls", "macros"] }
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+dotenvy = "0.15.7"
+envy = "0.4.2"
+tracing-subscriber = "0.3.19"
+chrono = { version = "0.4", features = ["serde"] }
+hyper = "1.6.0"
