@@ -9,3 +9,11 @@ pub struct User {
     pub password: String,
     pub created_at: NaiveDateTime,
 }
+
+#[derive(Debug, Serialize, FromRow)]
+pub struct UserTokens {
+    pub id: i64,
+    pub user_id: i64,
+    pub token: String,
+    pub created_at: NaiveDateTime,
+}

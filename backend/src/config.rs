@@ -2,10 +2,11 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
-    pub app_host: Option<String>,
-    pub app_name: Option<String>,
-    pub app_port: Option<u16>,
+    pub app_host: String,
+    pub app_name: String,
+    pub app_port: u16,
     pub db_url: String,
+    pub password_salt: String,
 }
 
 impl Config {
