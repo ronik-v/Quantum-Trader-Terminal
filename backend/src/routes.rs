@@ -1,9 +1,16 @@
-use axum::{Router, routing::post};
+use axum::{Router, routing::post, routing::get};
 use crate::handlers::auth::auth_handler;
+use crate::handlers::moex::get_ticker_data_handler;
 use crate::AppState;
 
 /// Api routers
 pub fn auth_api_router() -> Router<AppState> {
     Router::new()
-        .route("/auth", post(auth_handler))
+        .route("/api/auth", post(auth_handler))
+}
+
+// Exchange integration api
+pub fn moex_api_router() -> Router<AppState> {
+    Router::new()
+        .route("/api/ticker", get(get_ticker_data_handler))
 }

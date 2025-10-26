@@ -16,6 +16,17 @@ pub struct AuthResponse {
     pub token: String,
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/auth",
+    request_body = AuthRequest,
+    responses(
+        (status = 200, description = "User authenticated", body = AuthResponse),
+        (status = 401, description = "Invalid credentials")
+    ),
+    security(),
+    tag = "Auth"
+)]
 pub async fn auth_handler(
     State(state): State<AppState>,
     Json(payload): Json<AuthRequest>,
@@ -30,20 +41,4 @@ pub async fn auth_handler(
     let meta = json!({ "token": token });
 
     Ok(Json(ApiResponse { data, meta: Some(meta) }))
-}
-
-#[utoipa::path(
-    post,
-    path = "/auth",
-    request_body = AuthRequest,
-    responses(
-    (status = 200, description = "User authenticated", body = AuthResponse),
-    (status = 401, description = "Invalid credentials")
-    )
-)]
-pub async fn auth_handler_openapi() -> Json<AuthResponse> {
-    Json(AuthResponse {
-        username: "example".to_string(),
-        token: "example-token".to_string(),
-    })
 }

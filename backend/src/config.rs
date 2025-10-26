@@ -7,6 +7,7 @@ pub struct Config {
     pub app_port: u16,
     pub db_url: String,
     pub password_salt: String,
+    pub moex_data_base_url: String,
 }
 
 impl Config {

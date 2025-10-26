@@ -1,4 +1,4 @@
-use sqlx::PgPool;
+use sqlx::{Error, PgPool};
 use crate::models::user::{User, UserTokens};
 
 pub struct UserRepository<'a> {
@@ -27,6 +27,15 @@ impl <'a> UserRepository<'a> {
             .bind(user_id)
             .bind(token)
             .fetch_one(self.pool)
+            .await
+    }
+
+    pub async fn find_user_by_token(&self, token: &str) -> Result<Option<User>, Error> {
+        sqlx::query_as::<_, User>(
+            "SELECT * FROM users JOIN user_tokens ON users.id = user_tokens.user_id WHERE user_tokens.token = $1"
+        )
+            .bind(token)
+            .fetch_optional(self.pool)
             .await
     }
 }
