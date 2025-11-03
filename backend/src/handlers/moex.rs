@@ -5,7 +5,7 @@ use serde_json::json;
 use utoipa::{IntoParams, ToSchema};
 use crate::{AppState, api::{ApiResponse, ApiError}};
 use crate::repositories::user::UserRepository;
-use crate::models::moex::Ticker;
+use crate::models::moex::TerminalResponse;
 use crate::services::moex::MoexDataService;
 use crate::utils::extract_bearer_token;
 
@@ -27,7 +27,7 @@ pub struct ErrorBody {
     path = "/api/ticker",
     params(TickerQuery),
     responses(
-        (status = 200, description = "Successfully fetched ticker data", body = Ticker),
+        (status = 200, description = "Successfully fetched ticker data", body = TerminalResponse),
         (status = 401, description = "Unauthorized — missing or invalid token", body = ErrorBody),
         (status = 500, description = "Internal server error", body = ErrorBody)
     ),
@@ -40,7 +40,7 @@ pub async fn get_ticker_data_handler(
     State(state): State<AppState>,
     Query(query): Query<TickerQuery>,
     headers: HeaderMap,
-) -> Result<Json<Ticker>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<TerminalResponse>, (StatusCode, Json<ErrorBody>)> {
     let token = match extract_bearer_token(&headers) {
         Some(t) => t,
         None => {

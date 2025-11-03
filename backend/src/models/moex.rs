@@ -13,3 +13,16 @@ pub struct Ticker {
     pub begin: Vec<String>,
     pub end: Vec<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ModelsData {
+    pub arima: Vec<f64>,
+    pub sma_5: Vec<f64>,
+    pub sma_12: Vec<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct TerminalResponse {
+    pub ticker: Ticker,
+    pub models: ModelsData,
+}
