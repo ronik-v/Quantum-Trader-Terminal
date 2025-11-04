@@ -18,7 +18,7 @@ use crate::routes::{auth_api_router, moex_api_router};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::handlers::moex::{TickerQuery, ErrorBody, get_ticker_data_handler};
+use crate::handlers::moex::{TickerQuery, ErrorBody, get_ticker_data_handler, get_ticker_by_company_name};
 use crate::handlers::auth::{AuthRequest, AuthResponse};
 
 use crate::models::moex::{Ticker};
@@ -58,7 +58,8 @@ async fn main() -> Result<()> {
 #[openapi(
     paths(
         crate::handlers::auth::auth_handler,
-        crate::handlers::moex::get_ticker_data_handler
+        crate::handlers::moex::get_ticker_data_handler,
+        crate::handlers::moex::get_ticker_by_company_name,
     ),
     components(
         schemas(

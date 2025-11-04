@@ -48,3 +48,10 @@ pub struct TerminalResponse {
     pub data: TerminalData,
     pub prediction: PredictionData,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct FindCompanyResponse {
+    pub ticker: String,
+    pub company_name: String,
+    pub short_company_name: String,
+}

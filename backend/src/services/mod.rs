@@ -1,3 +1,4 @@
 pub mod user;
 pub mod moex;
-mod finance;
+pub mod finance;
+pub mod company;

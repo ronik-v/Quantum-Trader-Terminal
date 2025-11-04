@@ -5,9 +5,10 @@ use serde_json::json;
 use utoipa::{IntoParams, ToSchema};
 use crate::{AppState, api::{ApiResponse, ApiError}};
 use crate::repositories::user::UserRepository;
-use crate::models::moex::{TerminalData, TerminalResponse};
+use crate::models::moex::{FindCompanyResponse, TerminalData, TerminalResponse};
+use crate::services::company::get_info_by_company_name;
 use crate::services::moex::MoexDataService;
-use crate::utils::extract_bearer_token;
+use crate::utils::{check_token_error, checking_user};
 
 #[derive(Debug, Deserialize, IntoParams, ToSchema)]
 pub struct TickerQuery {
@@ -15,6 +16,11 @@ pub struct TickerQuery {
     pub date_from: String,
     pub date_till: String,
     pub interval: u32,
+}
+
+#[derive(Debug, Deserialize, IntoParams, ToSchema)]
+pub struct FindCompanyQuery {
+    pub company_name: String,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -41,22 +47,8 @@ pub async fn get_ticker_data_handler(
     Query(query): Query<TickerQuery>,
     headers: HeaderMap,
 ) -> Result<Json<TerminalResponse>, (StatusCode, Json<ErrorBody>)> {
-    let token = match extract_bearer_token(&headers) {
-        Some(t) => t,
-        None => {
-            return Err((StatusCode::UNAUTHORIZED, Json(ErrorBody { error: "No token".into() })));
-        }
-    };
-    let repo = UserRepository::new(&state.db);
-    let maybe_user = repo
-        .find_user_by_token(&token)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorBody { error: format!("DB error: {}", e) })))?;
-
-    match maybe_user {
-        Some(u) => u,
-        None => return Err((StatusCode::UNAUTHORIZED, Json(ErrorBody { error: "Invalid token".into() }))),
-    };
+    let token = check_token_error(&headers)?;
+    let _ = checking_user(&state, token).await;
 
     let svc = MoexDataService::new(
         query.ticker.clone(),
@@ -68,4 +60,34 @@ pub async fn get_ticker_data_handler(
     let ticker = svc.get().await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorBody { error: format!("MOEX error: {}", e) })))?;
     Ok(Json(ticker))
+}
+
+
+#[utoipa::path(
+    get,
+    path = "/api/find",
+    params(FindCompanyQuery),
+    responses(
+        (status = 200, description = "Company found", body = FindCompanyResponse),
+        (status = 400, description = "No data by this name", body = ErrorBody),
+        (status = 401, description = "Unauthorized — missing or invalid token", body = ErrorBody),
+        (status = 500, description = "Internal server error", body = ErrorBody)
+    ),
+    security(
+        ("bearerAuth" = [])
+    ),
+    tag = "MOEX"
+)]
+pub async fn get_ticker_by_company_name(
+    State(state): State<AppState>,
+    Query(query): Query<FindCompanyQuery>,
+    headers: HeaderMap,
+) -> Result<Json<FindCompanyResponse>, (StatusCode, Json<ErrorBody>)> {
+    let token = check_token_error(&headers)?;
+    let _ = checking_user(&state, token).await;
+
+    let company_info = get_info_by_company_name(query.company_name.as_str()).await
+        .map_err(|e| (StatusCode::BAD_REQUEST, Json(ErrorBody { error: format!("No data by this name: {}", e) })))?;
+
+    Ok(Json(company_info))
 }

@@ -1,4 +1,7 @@
+use axum::http::StatusCode;
+use axum::Json;
 use sqlx::{Error, PgPool};
+use crate::handlers::moex::ErrorBody;
 use crate::models::user::{User, UserTokens};
 
 pub struct UserRepository<'a> {
