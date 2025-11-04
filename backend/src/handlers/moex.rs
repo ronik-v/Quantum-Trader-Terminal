@@ -5,7 +5,7 @@ use serde_json::json;
 use utoipa::{IntoParams, ToSchema};
 use crate::{AppState, api::{ApiResponse, ApiError}};
 use crate::repositories::user::UserRepository;
-use crate::models::moex::TerminalResponse;
+use crate::models::moex::{TerminalData, TerminalResponse};
 use crate::services::moex::MoexDataService;
 use crate::utils::extract_bearer_token;
 

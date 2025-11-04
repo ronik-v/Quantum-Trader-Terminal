@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use tracing_subscriber::registry::Data;
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -15,14 +16,35 @@ pub struct Ticker {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct GarchData {
+    pub upper: Vec<f64>,
+    pub lower: Vec<f64>,
+    pub sigma: Vec<f64>,
+    pub sigma_next: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ModelsData {
     pub arima: Vec<f64>,
     pub sma_5: Vec<f64>,
     pub sma_12: Vec<f64>,
+    pub garch: GarchData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct TerminalData {
+    pub ticker: Ticker,
+    pub models: ModelsData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PredictionData {
+    pub next_price: f64,
+    pub price_diff: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TerminalResponse {
-    pub ticker: Ticker,
-    pub models: ModelsData,
+    pub data: TerminalData,
+    pub prediction: PredictionData,
 }

@@ -1,8 +1,11 @@
 use reqwest::Client;
 use serde_json::Value;
-use crate::models::moex::{ModelsData, TerminalResponse, Ticker};
+use crate::models::moex::{GarchData, ModelsData, PredictionData, TerminalData, TerminalResponse, Ticker};
 use crate::services::finance::arima::Arima;
+use crate::services::finance::garch::Garch;
+use crate::services::finance::prediction::{ModelsPrediction, predict};
 use crate::services::finance::sma::Sma;
+use crate::services::finance::utils::std;
 
 pub(crate) struct MoexDataService {
     pub ticker: String,
@@ -29,13 +32,16 @@ impl MoexDataService {
 
         // prepare service response
         let ticker_data = self.prepare_moex_data(&data);
-        let models_data = self.prepare_models_data(close_price);
+        let (models_data, prediction_data) = self.prepare_models_data(close_price);
 
         if !data.is_empty() {
             Ok(
                 TerminalResponse {
-                    ticker: ticker_data,
-                    models: models_data,
+                    data: TerminalData {
+                        ticker: ticker_data,
+                        models: models_data,
+                    },
+                    prediction: prediction_data,
                 }
             )
         } else {
@@ -57,16 +63,41 @@ impl MoexDataService {
         )
     }
 
-    fn prepare_models_data(&self, close_price: Vec<f64>) -> ModelsData {
+    fn prepare_models_data(&self, close_price: Vec<f64>) -> (ModelsData, PredictionData) {
         let arima = Arima::new(close_price.clone());
         let sma_5 = Sma::new(close_price.clone(), 5);
-        let sma_12 = Sma::new(close_price, 12);
+        let sma_12 = Sma::new(close_price.clone(), 12);
+        let garch = Garch::new(close_price.clone());
+        let (upper, lower, sigma, sigma_next) = garch.price_bounds(1.0);
 
-        ModelsData {
-            arima: arima.model_prediction_time_series(),
+        let arima_prediction = arima.model_prediction_time_series();
+        let arima_log_income: f64 = arima_prediction[arima_prediction.len() - 1].ln() - arima_prediction[arima_prediction.len() - 2].ln();
+        let arima_v: f64 = std(&arima_prediction).powf(2.0);
+
+        let predict_price: f64 = predict(ModelsPrediction{
+            arima_log_income,
+            arima_v,
+            sigma_next: sigma_next.unwrap(),
+            last_close_price: *close_price.last().unwrap(),
+        });
+
+        (
+            ModelsData {
+            arima: arima_prediction,
             sma_5: sma_5.values(),
             sma_12: sma_12.values(),
+            garch: GarchData {
+                upper,
+                lower,
+                sigma,
+                sigma_next,
+            }
+        },
+        PredictionData {
+            next_price: predict_price,
+            price_diff: predict_price - *close_price.last().unwrap(),
         }
+        )
     }
 
     fn prepare_moex_data(&self, data: &[Vec<Value>]) -> Ticker {
