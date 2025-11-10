@@ -3,7 +3,7 @@ use axum::http::{HeaderMap, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use utoipa::{IntoParams, ToSchema};
-use crate::{AppState, api::{ApiResponse, ApiError}};
+use crate::{AppState, api::{ApiResponse, ApiError}, config};
 use crate::repositories::user::UserRepository;
 use crate::models::moex::{FindCompanyResponse, TerminalData, TerminalResponse};
 use crate::services::company::get_info_by_company_name;
@@ -85,8 +85,9 @@ pub async fn get_ticker_by_company_name(
 ) -> Result<Json<FindCompanyResponse>, (StatusCode, Json<ErrorBody>)> {
     let token = check_token_error(&headers)?;
     let _ = checking_user(&state, token).await;
+    let cfg = config::Config::from_env();
 
-    let company_info = get_info_by_company_name(query.company_name.as_str()).await
+    let company_info = get_info_by_company_name(cfg.moex_find_company_url.as_str(), query.company_name.as_str()).await
         .map_err(|e| (StatusCode::BAD_REQUEST, Json(ErrorBody { error: format!("No data by this name: {}", e) })))?;
 
     Ok(Json(company_info))

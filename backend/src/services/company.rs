@@ -4,8 +4,8 @@ use serde_json::Value;
 use crate::models::moex::FindCompanyResponse;
 
 // getting ticker and meta info by finding company
-pub async fn get_info_by_company_name(company_name: &str) -> Result<FindCompanyResponse, Box<dyn Error>> {
-    let url = format!("https://iss.moex.com/iss/securities.json?q={}", company_name);
+pub async fn get_info_by_company_name(find_url: &str, company_name: &str) -> Result<FindCompanyResponse, Box<dyn Error>> {
+    let url = format!("{}{}", find_url, company_name);
     let client = Client::new();
     let response = client.get(&url).send().await?;
     let response_body = response.text().await?;
