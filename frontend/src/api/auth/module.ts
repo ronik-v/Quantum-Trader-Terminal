@@ -1,30 +1,31 @@
-import type {ErrorResponse} from "../base.ts";
-import type {AuthResponse, AuthRequest} from "./types.ts";
-import axios, {type AxiosInstance} from "axios";
-import {config} from "../../config.ts";
-
+import type {ApiErrorResponse, ErrorResponse} from "../base.ts";
+import type {ApiAuthResponse, AuthRequest, AuthResponse} from "./types.ts";
+import axios, { type AxiosInstance } from "axios";
+import { config } from "../../config.ts";
 
 export class AuthService {
-    private userAuthRequest: AuthRequest;
+    private readonly userAuthRequest: AuthRequest;
     private apiClient: AxiosInstance;
 
-    constructsor(userAuthRequest: AuthRequest) {
+    constructor(userAuthRequest: AuthRequest) {
         this.userAuthRequest = userAuthRequest;
-
         this.apiClient = axios.create({
             baseURL: config.baseUrl,
             withCredentials: false,
             headers: { "Content-Type": "application/json" },
-        })
+        });
     }
 
-    // @ts-ignore
     async login(): Promise<AuthResponse | ErrorResponse> {
-        const response = await this.apiClient.post<AuthRequest>(config.authUrl, this.userAuthRequest);
-        if (response.status === 200) {
-
-        } else {
-
+        try {
+            const response = await this.apiClient.post<ApiAuthResponse>(config.authUrl, this.userAuthRequest);
+            return {
+                username: response.data.data.username,
+                token: response.data.meta.token,
+            };
+        } catch (err: any) {
+            const apiErr = err.response?.data as ApiErrorResponse;
+            return apiErr.error;
         }
     }
 }
