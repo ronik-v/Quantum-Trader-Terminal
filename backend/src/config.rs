@@ -9,6 +9,7 @@ pub struct Config {
     pub password_salt: String,
     pub moex_data_base_url: String,
     pub moex_find_company_url: String,
+    pub frontend_url: String,
 }
 
 impl Config {

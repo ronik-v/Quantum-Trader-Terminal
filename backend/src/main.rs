@@ -11,7 +11,10 @@ mod utils;
 use axum::Router;
 use std::net::{SocketAddr, IpAddr};
 use anyhow::Result;
+use http::{HeaderName, HeaderValue, Method};
+use http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use tokio::net::TcpListener;
+use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber;
 use crate::routes::{auth_api_router, moex_api_router};
 
@@ -36,6 +39,12 @@ async fn main() -> Result<()> {
     let pool = db::pool::create_pool(&cfg).await?;
     let state = AppState { db: pool };
 
+    let cors = CorsLayer::new()
+        .allow_origin(HeaderValue::from_str(&cfg.frontend_url).unwrap())
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS, Method::PUT, Method::DELETE])
+        .allow_headers([AUTHORIZATION, CONTENT_TYPE, ACCEPT, HeaderName::from_static("x-requested-with")])
+        .allow_credentials(true);
+
     let app = Router::new()
         .merge(auth_api_router())
         .merge(moex_api_router())
@@ -43,7 +52,8 @@ async fn main() -> Result<()> {
             SwaggerUi::new("/swagger-ui")
                 .url("/api-doc/openapi.json", ApiDoc::openapi()),
         )
-        .with_state(state);
+        .with_state(state)
+        .layer(cors);
 
     let ip: IpAddr = cfg.app_host.parse()?;
     let addr = SocketAddr::new(ip, cfg.app_port);

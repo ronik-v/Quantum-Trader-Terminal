@@ -6,8 +6,8 @@ type AppConfig = {
 }
 
 export const config: AppConfig = {
-    baseUrl: import.meta.env.BASE_URL,
-    authUrl: import.meta.env.BACKEND_AUTH_PATH,
-    dataUrl: import.meta.env.BACKEND_TICKER_DATA_PATH,
-    findUrl: import.meta.env.BACKEND_FIND_TICKER_PATH,
+    baseUrl: (import.meta.env.VITE_BASE_URL as string),
+    authUrl: (import.meta.env.VITE_BACKEND_AUTH_PATH as string),
+    dataUrl: (import.meta.env.VITE_BACKEND_TICKER_DATA_PATH as string),
+    findUrl: (import.meta.env.VITE_BACKEND_FIND_TICKER_PATH as string),
 }
