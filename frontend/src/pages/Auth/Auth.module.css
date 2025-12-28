@@ -11,7 +11,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 1rem 1rem 128px;
     color: #ffffff;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -35,6 +35,7 @@
     align-items: stretch;
     justify-content: flex-start;
     transition: transform 175ms ease, box-shadow 175ms ease;
+    transform: translateY(-36px);
 }
 
 .authTitle{
@@ -111,6 +112,7 @@
     .authForm{
         padding: 1.25rem;
         border-radius: 12px;
+        transform: translateY(-18px);
     }
     .authTitle{ font-size: 1.15rem; }
     .authInput{ padding: 0.7rem; font-size: 0.98rem; }
@@ -130,5 +132,5 @@
 
 
 @media (max-width: 360px){
-    .authForm{ padding: 1rem; }
+    .authForm{ padding: 1rem; transform: translateY(-10px); }
 }

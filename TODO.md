@@ -6,3 +6,4 @@
 ## Frontend tasks
 1. Auth page | registrate + modal with code verify
 2. Success and error modal when makes api query
+3. Add footer like tsx component - for all pages

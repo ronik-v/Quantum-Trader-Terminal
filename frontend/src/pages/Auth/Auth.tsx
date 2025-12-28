@@ -5,6 +5,7 @@ import type { AuthRequest, AuthResponse } from "../../api/auth/types";
 import type { ErrorResponse } from "../../api/base";
 import { UserUtils } from "../../utils/user";
 import styles from "./Auth.module.css"
+import {Footer} from "../../components/Footer/Footer.tsx";
 
 export function Auth(): JSX.Element {
     const [username, setUsername] = useState<string>("");
@@ -52,27 +53,31 @@ export function Auth(): JSX.Element {
     };
 
     return (
-        <div className={styles.authPage}>
-            <form onSubmit={onSubmit} className={styles.authForm}>
-                <h3 className={styles.authTitle} >Sign in</h3>
-                <input
-                    className={styles.authInput}
-                    name="username"
-                    type="text"
-                    value={username}
-                    placeholder="Username"
-                    onChange={(e) => setUsername(e.target.value)}
-                />
-                <input
-                    className={styles.authInput}
-                    name="password"
-                    type="password"
-                    value={password}
-                    placeholder="Password"
-                    onChange={(e) => setPassword(e.target.value)}
-                />
-                <button className={styles.authBtn} type="submit">Log in</button>
-            </form>
+        <div>
+            <div className={styles.authPage}>
+                <form onSubmit={onSubmit} className={styles.authForm}>
+                    <h3 className={styles.authTitle} >Quantum Trader Terminal</h3>
+                    <input
+                        className={styles.authInput}
+                        name="username"
+                        type="text"
+                        value={username}
+                        placeholder="Username"
+                        onChange={(e) => setUsername(e.target.value)}
+                    />
+                    <input
+                        className={styles.authInput}
+                        name="password"
+                        type="password"
+                        value={password}
+                        placeholder="Password"
+                        onChange={(e) => setPassword(e.target.value)}
+                    />
+                    <button className={styles.authBtn} type="submit">Log in</button>
+                </form>
+            </div>
+
+            <Footer />
         </div>
     );
 }
