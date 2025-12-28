@@ -1,4 +1,5 @@
 export interface TickerData {
+    close: number[];
     open: number[];
     high: number[];
     low: number[];

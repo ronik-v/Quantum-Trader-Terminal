@@ -1,0 +1,247 @@
+:root {
+    --bg-dark: #05060a;
+    --accent-blue: #0b66ff;
+    --muted-blue: #00304a;
+    --glass-alpha: 0.68;
+}
+
+.securitiesPage {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 1rem;
+    color: #ffffff;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--bg-dark);
+}
+
+.chartWrapper {
+    width: 100%;
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.securitiesForm {
+    width: 100%;
+    min-height: auto;
+    border-radius: 15px 15px 0 0;
+    padding: 1rem;
+    box-sizing: border-box;
+    background: rgba(20, 28, 36, var(--glass-alpha));
+    border: 1px solid rgba(255,255,255,0.04);
+    border-bottom: none;
+    box-shadow: 0 10px 22px rgba(3,8,20,0.24), inset 0 1px 0 rgba(255,255,255,0.01);
+    backdrop-filter: blur(10px) saturate(90%);
+    -webkit-backdrop-filter: blur(10px) saturate(90%);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+    justify-content: flex-start;
+    transition: none;
+    transform: none;
+    margin-bottom: 0;
+}
+
+.securitiesTitle {
+    margin: 0;
+    text-align: center;
+    color: #ffffff;
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+.securitiesLabel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.92);
+}
+
+.securitiesInput {
+    appearance: none;
+    -webkit-appearance: none;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+    border: 1px solid rgba(255,255,255,0.06);
+    color: #ffffff;
+    padding: 0.5rem 0.7rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    outline: none;
+    transition: box-shadow 160ms ease, transform 120ms ease, border-color 120ms ease;
+}
+
+.securitiesInput::placeholder {
+    color: rgba(255,255,255,0.6);
+}
+
+.securitiesInput:focus {
+    border-color: rgba(11, 102, 255, 0.85);
+    box-shadow: 0 8px 18px rgba(3,8,20,0.42), 0 0 0 6px rgba(11,102,255,0.06);
+    transform: translateY(-1px);
+}
+
+.securitiesSelect {
+    appearance: none;
+    -webkit-appearance: none;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+    border: 1px solid rgba(255,255,255,0.06);
+    color: #ffffff;
+    padding: 0.5rem 0.7rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    outline: none;
+    transition: box-shadow 160ms ease, transform 120ms ease, border-color 120ms ease;
+    cursor: pointer;
+}
+
+.securitiesSelect:focus {
+    border-color: rgba(11, 102, 255, 0.85);
+    box-shadow: 0 8px 18px rgba(3,8,20,0.42), 0 0 0 6px rgba(11,102,255,0.06);
+    transform: translateY(-1px);
+}
+
+.securitiesBtn {
+    padding: 0.6rem 0.8rem;
+    border-radius: 10px;
+    border: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    color: #ffffff;
+    background: linear-gradient(90deg, rgba(11,102,255,1) 0%, rgba(0,48,87,1) 100%);
+    box-shadow: 0 8px 18px rgba(3,8,20,0.36);
+    transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.securitiesBtn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(3,8,20,0.45);
+}
+
+.securitiesBtn:active {
+    transform: translateY(0);
+}
+
+.securitiesError {
+    color: #ff4d4d;
+    font-size: 0.8rem;
+    text-align: center;
+    margin: 0.5rem 0 0;
+}
+
+.securitiesChartContainer {
+    position: relative;
+    width: 100%;
+    height: 60vh;
+    margin-top: 0;
+    padding: 1rem;
+    border-radius: 0 0 15px 15px;
+    background: rgba(20, 28, 36, var(--glass-alpha));
+    border: 1px solid rgba(255,255,255,0.04);
+    border-top: none;
+    box-shadow: 0 10px 22px rgba(3,8,20,0.24), inset 0 1px 0 rgba(255,255,255,0.01);
+    backdrop-filter: blur(10px) saturate(90%);
+    -webkit-backdrop-filter: blur(10px) saturate(90%);
+}
+
+.securitiesPrediction {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: auto;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    background: rgba(20, 28, 36, var(--glass-alpha));
+    border: 1px solid rgba(255,255,255,0.04);
+    box-shadow: 0 8px 18px rgba(3,8,20,0.24), inset 0 1px 0 rgba(255,255,255,0.01);
+    backdrop-filter: blur(10px) saturate(90%);
+    -webkit-backdrop-filter: blur(10px) saturate(90%);
+    text-align: left;
+    z-index: 10;
+}
+
+.securitiesPrediction h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    color: #ffffff;
+}
+
+.securitiesPrediction p {
+    margin: 0.3rem 0;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.92);
+}
+
+.up {
+    color: green;
+}
+
+.down {
+    color: red;
+}
+
+.filtersContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.searchContainer {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.searchContainer .securitiesInput {
+    flex: 1;
+}
+
+@media (min-width: 768px) {
+    .filtersContainer {
+        flex-direction: row;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .securitiesLabel {
+        flex: 1;
+    }
+}
+
+@media (min-width: 1100px) {
+    .securitiesForm { padding: 1.5rem; }
+    .securitiesTitle { font-size: 1.8rem; }
+    .securitiesChartContainer { height: 70vh; padding: 1.5rem; }
+}
+
+@media (max-width: 480px) {
+    .securitiesPage { padding: 0.5rem; }
+    .securitiesForm {
+        padding: 0.75rem;
+        border-radius: 10px 10px 0 0;
+    }
+    .securitiesTitle { font-size: 1.3rem; }
+    .securitiesInput, .securitiesSelect { padding: 0.5rem; font-size: 0.85rem; }
+    .securitiesBtn { padding: 0.5rem; font-size: 0.85rem; }
+    .securitiesChartContainer { padding: 0.75rem; height: 50vh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .securitiesInput, .securitiesSelect, .securitiesBtn { transition: none !important; }
+}
+
+.securitiesInput:focus-visible, .securitiesSelect:focus-visible, .securitiesBtn:focus-visible {
+    outline: 3px solid rgba(11,102,255,0.14);
+    outline-offset: 2px;
+}
+
+@media (max-width: 360px) {
+    .securitiesForm { padding: 0.5rem; }
+}

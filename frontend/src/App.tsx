@@ -1,6 +1,6 @@
 import './App.css'
 import { Navigate, Route, Routes } from "react-router-dom";
-import { AuthPage } from "./routers/AppRouters.ts";
+import {AuthPage, SecuritiesDataPage} from "./routers/AppRouters.ts";
 
 function App() {
   return (
@@ -8,6 +8,7 @@ function App() {
         <Routes>
             <Route path="/" element={<Navigate to="/auth" replace />} />
             <Route path="/auth" element={<AuthPage/>} />
+            <Route path="/data" element={<SecuritiesDataPage/>} />
         </Routes>
     </>
   )

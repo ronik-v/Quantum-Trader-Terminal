@@ -45,7 +45,7 @@ export function Auth(): JSX.Element {
             userUtils.setToken(auth.token);
             userUtils.setUsername(auth.username);
 
-            navigate("/main");
+            navigate("/data");
         } catch (err) {
             console.error(err);
             alert("Network or server error");

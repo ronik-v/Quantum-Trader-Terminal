@@ -16,7 +16,7 @@ export class UserUtils {
     }
 
     getToken() {
-        return localStorage.getItem(this.auth_token_key);
+        return localStorage.getItem(this.auth_token_key) as string;
     }
 
     setToken(token: string) {

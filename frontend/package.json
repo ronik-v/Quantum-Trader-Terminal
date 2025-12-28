@@ -1,5 +1,5 @@
 {
-  "name": "quantum_terminal",
+  "name": "Quantum terminal",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,7 +11,10 @@
   },
   "dependencies": {
     "axios": "^1.13.2",
+    "chart.js": "^4.5.1",
+    "chartjs-chart-financial": "^0.2.1",
     "react": "^19.2.0",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.5"
   },
