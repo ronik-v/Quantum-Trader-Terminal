@@ -1,4 +1,4 @@
-import {type JSX, useState, useEffect} from 'react';
+import { type JSX, useState, useEffect, useCallback, useRef } from 'react';
 import { Chart as ChartComponent } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
@@ -6,22 +6,23 @@ import {
     LinearScale,
     PointElement,
     LineElement,
+    BarElement,
     Title,
     Tooltip,
     Legend,
     TimeScale,
+    Filler,
+    type ChartOptions
 } from 'chart.js';
 import 'chartjs-adapter-date-fns';
-import {
-    CandlestickController,
-    CandlestickElement,
-} from 'chartjs-chart-financial';
+import zoomPlugin from 'chartjs-plugin-zoom';
+import { CandlestickController, CandlestickElement } from 'chartjs-chart-financial';
 import styles from './SecuritiesData.module.css';
-import type {FindCompanyResponse, TickerApiResponse} from "../../api/stockData/types.ts";
-import type {StockDataService} from "../../api/stockData/module.ts";
-import {ApiServiceFactory} from "../../api/connection.ts";
-import {Footer} from "../../components/Footer/Footer.tsx";
-import {UserUtils} from "../../utils/user.ts";
+import type { FindCompanyResponse, TickerApiResponse } from '../../api/stockData/types.ts';
+import type { StockDataService } from '../../api/stockData/module.ts';
+import { ApiServiceFactory } from '../../api/connection.ts';
+import { Footer } from '../../components/Footer/Footer.tsx';
+import { UserUtils } from '../../utils/user.ts';
 
 ChartJS.register(
     CategoryScale,
@@ -32,8 +33,11 @@ ChartJS.register(
     Tooltip,
     Legend,
     TimeScale,
+    Filler,
+    BarElement,
     CandlestickController,
-    CandlestickElement
+    CandlestickElement,
+    zoomPlugin
 );
 
 export function SecuritiesData(): JSX.Element {
@@ -44,23 +48,25 @@ export function SecuritiesData(): JSX.Element {
     const [dateTill, setDateTill] = useState<string>('');
     const [interval, setInterval] = useState<string>('24');
     const [data, setData] = useState<TickerApiResponse | null>(null);
-    const [graphType, setGraphType] = useState<'normal' | 'candlestick'>('normal');
+    const [graphType, setGraphType] = useState<'candlestick' | 'line'>('candlestick');
+    const [showOnlyGarch, setShowOnlyGarch] = useState<boolean>(false);
     const [showPrediction, setShowPrediction] = useState<boolean>(true);
+    const [loading, setLoading] = useState<boolean>(false);
     const userUtils = new UserUtils();
-
-    const [chartData, setChartData] = useState<any>({
-        labels: [],
-        datasets: [],
-    });
+    const [chartDataMain, setChartDataMain] = useState<any>({ datasets: [] });
+    const [chartDataVolume, setChartDataVolume] = useState<any>({ datasets: [] });
+    const [yScale, setYScale] = useState<{ min?: number; max?: number; step?: number }>({});
     const [stockInfo, setStockInfo] = useState<any>(null);
+    const mainChartRef = useRef<any>(null);
+
+    const stockServiceRef = useCallback((): StockDataService => ApiServiceFactory.stockService(userUtils.getToken()), [userUtils]);
 
     async function handleSearch() {
         setError('');
         setTickerInfo(null);
         setData(null);
         setStockInfo(null);
-        const stockService: StockDataService = ApiServiceFactory.stockService(userUtils.getToken());
-        const res = await stockService.findByCompanyName(companyName);
+        const res = await stockServiceRef().findByCompanyName(companyName);
         if ('error' in res) {
             setError((res as { error: string }).error);
         } else {
@@ -71,262 +77,513 @@ export function SecuritiesData(): JSX.Element {
     async function handleFetch() {
         if (!tickerInfo) return;
         setError('');
-        setData(null);
-        setStockInfo(null);
-        const stockService: StockDataService = ApiServiceFactory.stockService(userUtils.getToken());
-        const res = await stockService.getTickerData(tickerInfo.ticker, dateFrom, dateTill, interval);
-        if ('error' in res) {
-            setError((res as { error: string }).error);
-        } else {
-            setData(res as TickerApiResponse);
+        setLoading(true);
+        try {
+            const intInterval = parseInt(interval || '24', 10);
+            const res = await stockServiceRef().getTickerData(tickerInfo.ticker, dateFrom || '', dateTill || '', intInterval);
+            if ('error' in res) {
+                setError((res as { error: string }).error);
+                setData(null);
+            } else {
+                setData(res as TickerApiResponse);
+            }
+        } finally {
+            setLoading(false);
         }
     }
 
     useEffect(() => {
-        if (!data || data.data.ticker.begin.length === 0) {
-            setChartData({ labels: [], datasets: [] });
+        if (tickerInfo) void handleFetch();
+    }, [tickerInfo, dateFrom, dateTill, interval]);
+
+    useEffect(() => {
+        const refreshInterval = setInterval(() => {
+            if (tickerInfo) void handleFetch();
+        }, 60000);
+
+        return () => clearInterval(refreshInterval);
+    }, [tickerInfo, dateFrom, dateTill, interval]);
+
+    useEffect(() => {
+        if (mainChartRef.current && chartDataMain.datasets.length > 0) {
+            requestAnimationFrame(() => {
+                mainChartRef.current?.resize();
+            });
+        }
+    }, [chartDataMain, graphType, showOnlyGarch]);
+
+    useEffect(() => {
+        if (!data || !data.data || !data.data.ticker || !Array.isArray(data.data.ticker.begin) || data.data.ticker.begin.length === 0) {
+            setChartDataMain({ datasets: [] });
+            setChartDataVolume({ datasets: [] });
             setStockInfo(null);
+            setYScale({});
             return;
         }
 
-        const labels = data.data.ticker.begin;
-        const datasets: any[] = [];
+        const begins = data.data.ticker.begin;
+        const timestamps = begins.map((b: any) => {
+            const ms = Date.parse(String(b));
+            return Number.isFinite(ms) ? ms : b;
+        });
 
-        if (graphType === 'normal') {
-            datasets.push(
-                { label: 'Open', data: data.data.ticker.open, borderColor: 'cyan', backgroundColor: 'rgba(0, 255, 255, 0.2)', fill: false, tension: 0.4 },
-                { label: 'Close', data: data.data.ticker.close, borderColor: 'blue', backgroundColor: 'rgba(0, 0, 255, 0.2)', fill: false, tension: 0.4 },
-                { label: 'High', data: data.data.ticker.high, borderColor: 'green', backgroundColor: 'rgba(0, 255, 0, 0.2)', fill: false, tension: 0.4 },
-                { label: 'Low', data: data.data.ticker.low, borderColor: 'red', backgroundColor: 'rgba(255, 0, 0, 0.2)', fill: false, tension: 0.4 }
-            );
+        const n = timestamps.length;
+        const open = data.data.ticker.open.map(Number);
+        const close = data.data.ticker.close.map(Number);
+        const high = data.data.ticker.high.map(Number);
+        const low = data.data.ticker.low.map(Number);
+        const volume = Array.isArray(data.data.ticker.volume) ? data.data.ticker.volume.map(Number) : [];
+        const models = data.data.models || {};
+
+        const mainDatasets: any[] = [];
+
+        if (showOnlyGarch) {
+            if (models.garch?.upper && models.garch.upper.length > 0) {
+                const upper = models.garch.upper.map((v: number, j: number) => ({ x: timestamps[j], y: Number(v) }));
+                mainDatasets.push({
+                    type: 'line',
+                    label: 'GARCH Upper',
+                    data: upper,
+                    borderColor: '#6fe3ff',
+                    backgroundColor: 'rgba(111,227,255,0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false,
+                    yAxisID: 'y'
+                });
+            }
+
+            if (models.garch?.lower && models.garch.lower.length > 0) {
+                const lower = models.garch.lower.map((v: number, j: number) => ({ x: timestamps[j], y: Number(v) }));
+                mainDatasets.push({
+                    type: 'line',
+                    label: 'GARCH Lower',
+                    data: lower,
+                    borderColor: '#ff8b8b',
+                    backgroundColor: 'rgba(255,139,139,0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false,
+                    yAxisID: 'y'
+                });
+            }
         } else {
-            // Правильный формат для candlestick в chartjs-chart-financial
-            const candleData = labels.map((label, i) => ({
-                x: label,
-                o: data.data.ticker.open[i],
-                h: data.data.ticker.high[i],
-                l: data.data.ticker.low[i],
-                c: data.data.ticker.close[i],
-            }));
-            datasets.push({
-                type: 'candlestick',
-                label: 'Candlestick',
-                data: candleData,
-            });
+            if (graphType === 'candlestick') {
+                const candleData = timestamps.map((t, i) => ({
+                    x: t,
+                    o: open[i],
+                    h: high[i],
+                    l: low[i],
+                    c: close[i]
+                }));
+
+                mainDatasets.push({
+                    type: 'candlestick',
+                    label: 'Price',
+                    data: candleData,
+                    borderWidth: 2,
+                    barPercentage: 0.92,
+                    categoryPercentage: 0.78,
+                    maxBarThickness: 60,
+                    wickColor: 'rgba(255,255,255,0.6)',
+                    color: {
+                        up: '#26a69a',
+                        down: '#ef5350',
+                        unchanged: '#999'
+                    },
+                    borderColor: {
+                        up: '#0f7a64',
+                        down: '#b43a36'
+                    },
+                    yAxisID: 'y'
+                });
+
+                if (Array.isArray(models.sma_5) && models.sma_5.length > 0) {
+                    const offset = 5;
+                    const sma5data = models.sma_5.map((v: number, j: number) => ({
+                        x: timestamps[j + offset - 1],
+                        y: Number(v)
+                    })).filter((_, idx) => idx + offset - 1 < n);
+                    mainDatasets.push({
+                        type: 'line',
+                        label: 'SMA 5',
+                        data: sma5data,
+                        borderColor: '#8bd3ff',
+                        borderWidth: 1.8,
+                        pointRadius: 0,
+                        spanGaps: true,
+                        yAxisID: 'y'
+                    });
+                }
+
+                if (Array.isArray(models.sma_12) && models.sma_12.length > 0) {
+                    const offset = 12;
+                    const sma12data = models.sma_12.map((v: number, j: number) => ({
+                        x: timestamps[j + offset - 1],
+                        y: Number(v)
+                    })).filter((_, idx) => idx + offset - 1 < n);
+                    mainDatasets.push({
+                        type: 'line',
+                        label: 'SMA 12',
+                        data: sma12data,
+                        borderColor: '#ffd166',
+                        borderWidth: 1.8,
+                        pointRadius: 0,
+                        spanGaps: true,
+                        yAxisID: 'y'
+                    });
+                }
+
+                if (Array.isArray(models.arima) && models.arima.length > 0) {
+                    const arimaData = models.arima.map((v: number, j: number) => ({ x: timestamps[j], y: Number(v) }));
+                    mainDatasets.push({
+                        type: 'line',
+                        label: 'ARIMA',
+                        data: arimaData,
+                        borderColor: '#c77dff',
+                        borderDash: [4, 4],
+                        borderWidth: 1.4,
+                        pointRadius: 0,
+                        yAxisID: 'y'
+                    });
+                }
+
+                if (models.garch?.upper && models.garch.upper.length > 0) {
+                    const upper = models.garch.upper.map((v: number, j: number) => ({ x: timestamps[j], y: Number(v) }));
+                    mainDatasets.push({
+                        type: 'line',
+                        label: 'GARCH Upper',
+                        data: upper,
+                        borderColor: '#6fe3ff',
+                        borderWidth: 1,
+                        pointRadius: 0,
+                        yAxisID: 'y1'
+                    });
+                }
+
+                if (models.garch?.lower && models.garch.lower.length > 0) {
+                    const lower = models.garch.lower.map((v: number, j: number) => ({ x: timestamps[j], y: Number(v) }));
+                    mainDatasets.push({
+                        type: 'line',
+                        label: 'GARCH Lower',
+                        data: lower,
+                        borderColor: '#ff8b8b',
+                        borderWidth: 1,
+                        pointRadius: 0,
+                        yAxisID: 'y1'
+                    });
+                }
+            } else {
+                mainDatasets.push(
+                    { type: 'line', label: 'Open', data: timestamps.map((t, i) => ({ x: t, y: open[i] })), borderColor: '#00ffff', borderWidth: 1.6, pointRadius: 0, yAxisID: 'y' },
+                    { type: 'line', label: 'Close', data: timestamps.map((t, i) => ({ x: t, y: close[i] })), borderColor: '#6fe3ff', borderWidth: 1.6, pointRadius: 0, yAxisID: 'y' },
+                    { type: 'line', label: 'High', data: timestamps.map((t, i) => ({ x: t, y: high[i] })), borderColor: '#7bd389', borderWidth: 1.2, pointRadius: 0, yAxisID: 'y' },
+                    { type: 'line', label: 'Low', data: timestamps.map((t, i) => ({ x: t, y: low[i] })), borderColor: '#ff8b8b', borderWidth: 1.2, pointRadius: 0, yAxisID: 'y' }
+                );
+            }
         }
 
-        if (data.data.models.arima) {
-            datasets.push({
-                label: 'ARIMA',
-                data: data.data.models.arima,
-                borderColor: 'magenta',
-                backgroundColor: 'rgba(255, 0, 255, 0.2)',
-                fill: false,
-                tension: 0.4,
-                pointRadius: 0,
+        setChartDataMain({ datasets: mainDatasets });
+
+        if (volume.length === n) {
+            setChartDataVolume({
+                datasets: [{
+                    type: 'bar',
+                    label: 'Volume',
+                    data: timestamps.map((t, i) => ({ x: t, y: volume[i] })),
+                    backgroundColor: 'rgba(139,0,0,0.96)',
+                    borderWidth: 0,
+                    barPercentage: 1.0,
+                    categoryPercentage: 1.0
+                }]
             });
+        } else {
+            setChartDataVolume({ datasets: [] });
         }
 
-        if (data.data.models.sma_5) {
-            datasets.push({
-                label: 'SMA 5',
-                data: data.data.models.sma_5,
-                borderColor: 'purple',
-                backgroundColor: 'rgba(128, 0, 128, 0.2)',
-                fill: false,
-                tension: 0.4,
-                pointRadius: 0,
-            });
+        let allYs = [...high, ...low, ...open, ...close];
+        if (!showOnlyGarch) {
+            if (Array.isArray(models.sma_5)) allYs.push(...models.sma_5.map(Number));
+            if (Array.isArray(models.sma_12)) allYs.push(...models.sma_12.map(Number));
+            if (Array.isArray(models.arima)) allYs.push(...models.arima.map(Number));
+        } else {
+            if (models.garch?.upper) allYs.push(...models.garch.upper.map(Number));
+            if (models.garch?.lower) allYs.push(...models.garch.lower.map(Number));
         }
 
-        if (data.data.models.sma_12 && data.data.models.sma_12.length > 0) {
-            datasets.push({
-                label: 'SMA 12',
-                data: data.data.models.sma_12,
-                borderColor: 'orange',
-                backgroundColor: 'rgba(255, 165, 0, 0.2)',
-                fill: false,
-                tension: 0.4,
-                pointRadius: 0,
-            });
+        const finite = allYs.filter(Number.isFinite);
+        if (finite.length > 0) {
+            let min = Math.min(...finite);
+            let max = Math.max(...finite);
+            const rawRange = Math.abs(max - min) || Math.abs(max) * 0.001 || 0.01;
+            let padding;
+            if (rawRange < 0.2) padding = Math.max(0.25, rawRange * 1.2);
+            else if (rawRange < 1) padding = Math.max(0.5, rawRange * 0.8);
+            else padding = rawRange * 0.12;
+            const minY = +(min - padding).toFixed(6);
+            const maxY = +(max + padding).toFixed(6);
+            let step = +(((maxY - minY) / 6).toFixed(2));
+            if (!isFinite(step) || step <= 0) step = 0.01;
+            if (step < 0.01) step = 0.01;
+            setYScale({ min: minY, max: maxY, step });
+        } else {
+            setYScale({});
         }
 
-        if (data.data.models.garch) {
-            datasets.push({
-                label: 'GARCH Upper',
-                data: data.data.models.garch.upper,
-                borderColor: 'lime',
-                backgroundColor: 'rgba(0, 255, 0, 0.1)',
-                fill: false,
-                tension: 0.4,
-                pointRadius: 0,
-            });
-            datasets.push({
-                label: 'GARCH Lower',
-                data: data.data.models.garch.lower,
-                borderColor: 'maroon',
-                backgroundColor: 'rgba(128, 0, 0, 0.1)',
-                fill: false,
-                tension: 0.4,
-                pointRadius: 0,
-            });
-        }
-
-        setChartData({ labels, datasets });
-
-        // Вычисляем информацию для верхней панели
-        const length = data.data.ticker.close.length;
-        if (length > 1) {
-            const lastClose = data.data.ticker.close[length - 1];
-            const prevClose = data.data.ticker.close[length - 2];
-            const priceChange = lastClose - prevClose;
-            const priceChangePercent = (priceChange / prevClose) * 100;
-
+        if (close.length > 0) {
+            const last = close.length - 1;
+            const lastClose = close[last];
+            const prevClose = close[Math.max(0, last - 1)];
+            const change = lastClose - prevClose;
+            const changePct = prevClose ? (change / prevClose) * 100 : 0;
             setStockInfo({
                 lastClose,
-                lastOpen: data.data.ticker.open[length - 1],
-                lastHigh: data.data.ticker.high[length - 1],
-                lastLow: data.data.ticker.low[length - 1],
-                lastVolume: data.data.ticker.volume[length - 1],
-                priceChange,
-                priceChangePercent,
+                lastOpen: open[last],
+                lastHigh: high[last],
+                lastLow: low[last],
+                lastVolume: volume[last] || 0,
+                priceChange: change,
+                priceChangePercent: changePct
             });
+        } else {
+            setStockInfo(null);
         }
-    }, [data, graphType]);
+    }, [data, graphType, showOnlyGarch]);
 
-    const hasData = chartData.datasets.length > 0 && chartData.labels.length > 0;
+    const hasMain = chartDataMain.datasets.length > 0;
+    const hasVolume = chartDataVolume.datasets.length > 0;
+    const hasGarch = data?.data?.models?.garch?.upper || data?.data?.models?.garch?.lower;
+
+    const optionsMain: ChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+            legend: { position: 'bottom', labels: { color: 'rgba(255,255,255,0.92)' } },
+            tooltip: {
+                callbacks: {
+                    label: (ctx: any) => {
+                        if (ctx.dataset.type === 'candlestick' && ctx.raw) {
+                            const r = ctx.raw;
+                            return `O: ${r.o.toFixed(2)} H: ${r.h.toFixed(2)} L: ${r.l.toFixed(2)} C: ${r.c.toFixed(2)}`;
+                        }
+                        return `${ctx.dataset.label}: ${Number(ctx.parsed.y).toFixed(2)}`;
+                    }
+                }
+            },
+            title: {
+                display: !!tickerInfo,
+                text: tickerInfo?.company_name || '',
+                color: '#ffffff',
+                font: { size: 18, weight: '600' }
+            },
+            zoom: {
+                zoom: { wheel: { enabled: true }, pinch: { enabled: true }, drag: { enabled: true }, mode: 'xy' },
+                pan: { enabled: true, mode: 'xy' }
+            }
+        },
+        scales: {
+            x: {
+                type: 'time',
+                time: { tooltipFormat: 'dd MMM yyyy', unit: 'day' },
+                ticks: { color: 'rgba(255,255,255,0.82)' },
+                grid: { color: 'rgba(255,255,255,0.02)' }
+            },
+            y: {
+                position: 'left',
+                min: yScale.min,
+                max: yScale.max,
+                ticks: {
+                    color: 'rgba(255,255,255,0.9)',
+                    callback: v => Number(v).toFixed(2),
+                    stepSize: yScale.step,
+                    maxTicksLimit: 12
+                },
+                grid: { color: 'rgba(255,255,255,0.02)' },
+                title: {
+                    display: true,
+                    text: showOnlyGarch ? 'GARCH Bounds' : 'Price (RUB)',
+                    color: 'rgba(255,255,255,0.88)'
+                }
+            },
+            y1: {
+                position: 'right',
+                display: !showOnlyGarch,
+                ticks: {
+                    color: 'rgba(255,255,255,0.6)',
+                    callback: v => Number(v).toFixed(2),
+                    maxTicksLimit: 12
+                },
+                grid: { display: false },
+                title: { display: true, text: 'GARCH', color: 'rgba(255,255,255,0.6)' }
+            }
+        }
+    };
+
+    const optionsVolume: ChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { type: 'time', grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.72)' } },
+            y: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.72)', callback: v => Number(v).toLocaleString() }, title: { display: true, text: 'Volume', color: 'rgba(255,255,255,0.78)' } }
+        }
+    };
 
     return (
         <div className={styles.securitiesPage}>
-            <div className={styles.chartWrapper}>
-                <div className={styles.securitiesHeader}>
-                    <div className={styles.headerInfo}>
+            <div className={styles.topStats}>
+                <div className={styles.leftStats}>
+                    <div className={styles.brand}>Market Panel</div>
+                    <div className={styles.controlsRow}>
                         <div className={styles.searchContainer}>
                             <input
                                 type="text"
                                 value={companyName}
-                                onChange={(e) => setCompanyName(e.target.value)}
+                                onChange={e => setCompanyName(e.target.value)}
                                 placeholder="Search stock..."
                                 className={styles.securitiesInput}
+                                onKeyDown={e => e.key === 'Enter' && handleSearch()}
                             />
                             <button onClick={handleSearch} className={styles.securitiesBtn}>Search</button>
                         </div>
-                        {tickerInfo && hasData && stockInfo && (
-                            <div className={styles.stockInfo}>
-                                <span className={styles.stockName}>{tickerInfo.company_name}</span>
-                                <span className={styles.stockPrice}>{stockInfo.lastClose.toFixed(2)} RUB</span>
-                                <span className={stockInfo.priceChange > 0 ? styles.positiveChange : styles.negativeChange}>
-                                    {stockInfo.priceChange.toFixed(2)} ({stockInfo.priceChangePercent.toFixed(2)}%)
-                                </span>
-                                <span className={styles.stockDetail}>Open: {stockInfo.lastOpen.toFixed(2)}</span>
-                                <span className={styles.stockDetail}>High: {stockInfo.lastHigh.toFixed(2)}</span>
-                                <span className={styles.stockDetail}>Low: {stockInfo.lastLow.toFixed(2)}</span>
-                                <span className={styles.stockDetail}>Vol: {stockInfo.lastVolume}</span>
-                            </div>
-                        )}
-                        {tickerInfo && (
-                            <div className={styles.filtersContainer}>
-                                <label className={styles.securitiesLabel}>
-                                    From:
-                                    <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={styles.securitiesInput} />
-                                </label>
-                                <label className={styles.securitiesLabel}>
-                                    Till:
-                                    <input type="date" value={dateTill} onChange={(e) => setDateTill(e.target.value)} className={styles.securitiesInput} />
-                                </label>
-                                <label className={styles.securitiesLabel}>
-                                    Interval:
-                                    <select value={interval} onChange={(e) => setInterval(e.target.value)} className={styles.securitiesSelect}>
-                                        <option value="1">1 min</option>
-                                        <option value="10">10 min</option>
-                                        <option value="60">1 hour</option>
-                                        <option value="24">1 day</option>
-                                        <option value="7">1 week</option>
-                                        <option value="31">1 month</option>
-                                        <option value="4">1 quarter</option>
-                                    </select>
-                                </label>
-                                <button onClick={handleFetch} className={styles.securitiesBtn}>Update</button>
-                            </div>
-                        )}
-                    </div>
-                    {error && <p className={styles.securitiesError}>{error}</p>}
-                </div>
-                <div className={styles.securitiesChartContainer}>
-                    {hasData ? (
-                        <ChartComponent
-                            type="line"
-                            data={chartData}
-                            options={{
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                interaction: {
-                                    mode: 'index',
-                                    intersect: false,
-                                },
-                                plugins: {
-                                    legend: { position: 'bottom' as const },
-                                    title: {
-                                        display: true,
-                                        text: tickerInfo?.company_name || 'Stock Analysis Chart',
-                                        font: { size: 22, weight: 'bold' },
-                                        color: '#ffffff',
-                                    },
-                                },
-                                scales: {
-                                    x: {
-                                        type: 'time',
-                                        time: {
-                                            unit: 'day',
-                                            displayFormats: {
-                                                day: 'dd MMM',
-                                            },
-                                        },
-                                        title: { display: true, text: 'Date', color: '#ffffff', font: { size: 14 } },
-                                        ticks: { color: '#cccccc', font: { size: 10 } },
-                                        grid: { color: 'rgba(255,255,255,0.1)' },
-                                    },
-                                    y: {
-                                        title: { display: true, text: 'Price (RUB)', color: '#ffffff', font: { size: 14 } },
-                                        ticks: { color: '#cccccc', font: { size: 10 } },
-                                        grid: { color: 'rgba(255,255,255,0.1)' },
-                                    },
-                                },
-                            }}
-                        />
-                    ) : (
-                        <div className={styles.noDataMessage}>
-                            {tickerInfo ? 'Нажмите Update, чтобы загрузить данные' : 'Найдите компанию и загрузите данные'}
+                        <div className={styles.smallControls}>
+                            <select value={interval} onChange={e => setInterval(e.target.value)} className={styles.securitiesSelect}>
+                                <option value="1">1m</option>
+                                <option value="10">10m</option>
+                                <option value="60">1h</option>
+                                <option value="24">1d</option>
+                                <option value="7">1w</option>
+                                <option value="31">1M</option>
+                            </select>
                         </div>
-                    )}
+                    </div>
+                </div>
 
-                    <button
-                        onClick={() => setGraphType(graphType === 'normal' ? 'candlestick' : 'normal')}
-                        className={styles.graphTypeBtn}
-                        title={graphType === 'normal' ? 'Переключить на свечи' : 'Переключить на линии'}
-                    >
-                        {graphType === 'normal' ? '🕯️' : '📈'}
-                    </button>
+                <div className={styles.centerStats}>
+                    <div className={styles.bigValue}>{stockInfo ? stockInfo.lastClose.toFixed(2) : '—'}</div>
+                    <div className={styles.smallMeta}>
+                        <span className={stockInfo && stockInfo.priceChange > 0 ? styles.positiveChange : styles.negativeChange}>
+                            {stockInfo ? `${stockInfo.priceChange.toFixed(2)} (${stockInfo.priceChangePercent.toFixed(2)}%)` : ''}
+                        </span>
+                        <span className={styles.metaTiny}>{tickerInfo?.ticker || ''}</span>
+                    </div>
+                </div>
 
-                    {data && data.prediction && (
-                        <div className={styles.predictionWrapper}>
-                            <button className={styles.predictionToggle} onClick={() => setShowPrediction(!showPrediction)}>
-                                Prediction {showPrediction ? '▼' : '▶'}
-                            </button>
-                            {showPrediction && (
-                                <div className={styles.securitiesPrediction}>
-                                    <h3>AI Price Prediction</h3>
-                                    <p className={styles.predNext}>Next: <span className={styles.highlight}>{data.prediction.next_price.toFixed(2)} RUB</span></p>
-                                    <p className={data.prediction.price_diff > 0 ? styles.up : styles.down}>
-                                        Diff: {data.prediction.price_diff.toFixed(2)} RUB
-                                        {data.prediction.price_diff > 0 ? ' ↑' : ' ↓'}
-                                    </p>
-                                </div>
-                            )}
+                <div className={styles.rightStats}>
+                    {tickerInfo && stockInfo && (
+                        <div className={styles.stockInfoCompact}>
+                            <div className={styles.stockName}>{tickerInfo.company_name}</div>
+                            <div className={styles.stockNumbers}>
+                                <div>Open {stockInfo.lastOpen.toFixed(2)}</div>
+                                <div>High {stockInfo.lastHigh.toFixed(2)}</div>
+                                <div>Low {stockInfo.lastLow.toFixed(2)}</div>
+                                <div>Vol {stockInfo.lastVolume}</div>
+                            </div>
                         </div>
                     )}
                 </div>
             </div>
+
+            <div className={styles.chartWrapper}>
+                <div className={styles.securitiesHeader}>
+                    <div className={styles.filtersRow}>
+                        <div className={styles.formDate}>
+                            <label className={styles.securitiesLabel}>
+                                From
+                                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={styles.dateInput} />
+                            </label>
+                            <label className={styles.securitiesLabel}>
+                                To
+                                <input type="date" value={dateTill} onChange={e => setDateTill(e.target.value)} className={styles.dateInput} />
+                            </label>
+                        </div>
+                        <div className={styles.rightControls}>
+                            <button
+                                onClick={() => setGraphType(prev => prev === 'candlestick' ? 'line' : 'candlestick')}
+                                className={styles.viewToggle}
+                                title={graphType === 'candlestick' ? 'Switch to Lines' : 'Switch to Candles'}
+                            >
+                                {graphType === 'candlestick' ? '🕯️' : '📈'}
+                            </button>
+                            {hasGarch && (
+                                <button
+                                    onClick={() => setShowOnlyGarch(prev => !prev)}
+                                    className={`${styles.viewToggle} ${showOnlyGarch ? styles.activeToggle : ''}`}
+                                    title="Show only GARCH"
+                                >
+                                    G
+                                </button>
+                            )}
+                            <button
+                                onClick={() => mainChartRef.current?.resetZoom()}
+                                className={styles.viewToggle}
+                                title="Reset zoom"
+                            >
+                                🔄
+                            </button>
+                        </div>
+                    </div>
+                    {error && <p className={styles.securitiesError}>{error}</p>}
+                </div>
+
+                <div className={styles.securitiesChartContainer}>
+                    {loading && (
+                        <div className={styles.loaderOverlay}>
+                            <div className={styles.spinner} />
+                        </div>
+                    )}
+
+                    {hasMain ? (
+                        <div className={styles.chartGrid}>
+                            <div className={styles.mainChart}>
+                                <ChartComponent
+                                    ref={mainChartRef}
+                                    type={graphType === 'candlestick' && !showOnlyGarch ? 'candlestick' : 'line'}
+                                    data={chartDataMain}
+                                    options={optionsMain}
+                                />
+                            </div>
+
+                            {hasVolume && (
+                                <div className={styles.volumeChart}>
+                                    <ChartComponent
+                                        type="bar"
+                                        data={chartDataVolume}
+                                        options={optionsVolume}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className={styles.noDataMessage}>
+                            {tickerInfo ? 'No data for selected period' : 'Search for a company and press Search'}
+                        </div>
+                    )}
+
+                    <div className={styles.predictionWrapper}>
+                        <button className={styles.predictionToggle} onClick={() => setShowPrediction(prev => !prev)}>
+                            Price Prediction {showPrediction ? '▾' : '▸'}
+                        </button>
+                        {showPrediction && data?.prediction && (
+                            <div className={styles.securitiesPrediction}>
+                                <div className={styles.predHead}>Price Prediction</div>
+                                <div className={styles.predBody}>
+                                    <div className={styles.predRow}>
+                                        <div>Next</div>
+                                        <div className={styles.predValue}>{data.prediction.next_price.toFixed(2)} RUB</div>
+                                    </div>
+                                    <div className={data.prediction.price_diff > 0 ? styles.up : styles.down}>
+                                        {data.prediction.price_diff > 0 ? '▲' : '▼'} {Math.abs(data.prediction.price_diff).toFixed(2)}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
             <Footer />
         </div>
     );
