@@ -1,4 +1,4 @@
-import {type JSX, useState} from 'react';
+import {type JSX, useState, useEffect} from 'react';
 import { Chart as ChartComponent } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
@@ -9,7 +9,9 @@ import {
     Title,
     Tooltip,
     Legend,
+    TimeScale,
 } from 'chart.js';
+import 'chartjs-adapter-date-fns';
 import {
     CandlestickController,
     CandlestickElement,
@@ -29,6 +31,7 @@ ChartJS.register(
     Title,
     Tooltip,
     Legend,
+    TimeScale,
     CandlestickController,
     CandlestickElement
 );
@@ -41,13 +44,21 @@ export function SecuritiesData(): JSX.Element {
     const [dateTill, setDateTill] = useState<string>('');
     const [interval, setInterval] = useState<string>('24');
     const [data, setData] = useState<TickerApiResponse | null>(null);
-    const [graphType, setGraphType] = useState<string>('normal');
+    const [graphType, setGraphType] = useState<'normal' | 'candlestick'>('normal');
+    const [showPrediction, setShowPrediction] = useState<boolean>(true);
     const userUtils = new UserUtils();
+
+    const [chartData, setChartData] = useState<any>({
+        labels: [],
+        datasets: [],
+    });
+    const [stockInfo, setStockInfo] = useState<any>(null);
 
     async function handleSearch() {
         setError('');
         setTickerInfo(null);
         setData(null);
+        setStockInfo(null);
         const stockService: StockDataService = ApiServiceFactory.stockService(userUtils.getToken());
         const res = await stockService.findByCompanyName(companyName);
         if ('error' in res) {
@@ -61,6 +72,7 @@ export function SecuritiesData(): JSX.Element {
         if (!tickerInfo) return;
         setError('');
         setData(null);
+        setStockInfo(null);
         const stockService: StockDataService = ApiServiceFactory.stockService(userUtils.getToken());
         const res = await stockService.getTickerData(tickerInfo.ticker, dateFrom, dateTill, interval);
         if ('error' in res) {
@@ -70,45 +82,25 @@ export function SecuritiesData(): JSX.Element {
         }
     }
 
-    let chartData = {
-        labels: [],
-        datasets: [],
-    };
-    if (data) {
+    useEffect(() => {
+        if (!data || data.data.ticker.begin.length === 0) {
+            setChartData({ labels: [], datasets: [] });
+            setStockInfo(null);
+            return;
+        }
+
         const labels = data.data.ticker.begin;
-        let datasets: any[] = [];
+        const datasets: any[] = [];
+
         if (graphType === 'normal') {
-            datasets = [
-                {
-                    label: 'Open',
-                    data: data.data.ticker.open,
-                    borderColor: 'cyan',
-                    backgroundColor: 'rgba(0, 255, 255, 0.5)',
-                    type: 'line',
-                },
-                {
-                    label: 'Close',
-                    data: data.data.ticker.close,
-                    borderColor: 'blue',
-                    backgroundColor: 'rgba(0, 0, 255, 0.5)',
-                    type: 'line',
-                },
-                {
-                    label: 'High',
-                    data: data.data.ticker.high,
-                    borderColor: 'green',
-                    backgroundColor: 'rgba(0, 255, 0, 0.5)',
-                    type: 'line',
-                },
-                {
-                    label: 'Low',
-                    data: data.data.ticker.low,
-                    borderColor: 'red',
-                    backgroundColor: 'rgba(255, 0, 0, 0.5)',
-                    type: 'line',
-                },
-            ];
+            datasets.push(
+                { label: 'Open', data: data.data.ticker.open, borderColor: 'cyan', backgroundColor: 'rgba(0, 255, 255, 0.2)', fill: false, tension: 0.4 },
+                { label: 'Close', data: data.data.ticker.close, borderColor: 'blue', backgroundColor: 'rgba(0, 0, 255, 0.2)', fill: false, tension: 0.4 },
+                { label: 'High', data: data.data.ticker.high, borderColor: 'green', backgroundColor: 'rgba(0, 255, 0, 0.2)', fill: false, tension: 0.4 },
+                { label: 'Low', data: data.data.ticker.low, borderColor: 'red', backgroundColor: 'rgba(255, 0, 0, 0.2)', fill: false, tension: 0.4 }
+            );
         } else {
+            // Правильный формат для candlestick в chartjs-chart-financial
             const candleData = labels.map((label, i) => ({
                 x: label,
                 o: data.data.ticker.open[i],
@@ -116,184 +108,223 @@ export function SecuritiesData(): JSX.Element {
                 l: data.data.ticker.low[i],
                 c: data.data.ticker.close[i],
             }));
-            datasets = [
-                {
-                    label: 'Candlestick',
-                    data: candleData,
-                    type: 'candlestick',
-                    color: {
-                        up: 'rgba(0, 255, 0, 0.5)',
-                        down: 'rgba(255, 0, 0, 0.5)',
-                        unchanged: 'rgba(255, 255, 255, 0.5)',
-                    },
-                    borderColor: {
-                        up: 'green',
-                        down: 'red',
-                        unchanged: 'white',
-                    },
-                },
-            ];
+            datasets.push({
+                type: 'candlestick',
+                label: 'Candlestick',
+                data: candleData,
+            });
         }
 
         if (data.data.models.arima) {
-            // @ts-ignore
             datasets.push({
                 label: 'ARIMA',
-                data: [null, ...data.data.models.arima],
+                data: data.data.models.arima,
                 borderColor: 'magenta',
-                backgroundColor: 'rgba(255, 0, 255, 0.5)',
-                type: 'line',
+                backgroundColor: 'rgba(255, 0, 255, 0.2)',
+                fill: false,
+                tension: 0.4,
+                pointRadius: 0,
             });
         }
 
         if (data.data.models.sma_5) {
             datasets.push({
                 label: 'SMA 5',
-                data: [...Array(labels.length - data.data.models.sma_5.length).fill(null), ...data.data.models.sma_5],
+                data: data.data.models.sma_5,
                 borderColor: 'purple',
-                backgroundColor: 'rgba(128, 0, 128, 0.5)',
-                type: 'line',
+                backgroundColor: 'rgba(128, 0, 128, 0.2)',
+                fill: false,
+                tension: 0.4,
+                pointRadius: 0,
             });
         }
 
         if (data.data.models.sma_12 && data.data.models.sma_12.length > 0) {
             datasets.push({
                 label: 'SMA 12',
-                data: [...Array(labels.length - data.data.models.sma_12.length).fill(null), ...data.data.models.sma_12],
+                data: data.data.models.sma_12,
                 borderColor: 'orange',
-                backgroundColor: 'rgba(255, 165, 0, 0.5)',
-                type: 'line',
+                backgroundColor: 'rgba(255, 165, 0, 0.2)',
+                fill: false,
+                tension: 0.4,
+                pointRadius: 0,
             });
         }
 
         if (data.data.models.garch) {
-            // @ts-ignore
             datasets.push({
                 label: 'GARCH Upper',
-                data: [null, ...data.data.models.garch.upper],
+                data: data.data.models.garch.upper,
                 borderColor: 'lime',
-                backgroundColor: 'rgba(0, 255, 0, 0.2)',
-                type: 'line',
+                backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                fill: false,
+                tension: 0.4,
+                pointRadius: 0,
             });
-            // @ts-ignore
             datasets.push({
                 label: 'GARCH Lower',
-                data: [null, ...data.data.models.garch.lower],
+                data: data.data.models.garch.lower,
                 borderColor: 'maroon',
-                backgroundColor: 'rgba(128, 0, 0, 0.2)',
-                type: 'line',
+                backgroundColor: 'rgba(128, 0, 0, 0.1)',
+                fill: false,
+                tension: 0.4,
+                pointRadius: 0,
             });
         }
 
-        chartData = {
-            labels,
-            datasets,
-        };
-    }
+        setChartData({ labels, datasets });
+
+        // Вычисляем информацию для верхней панели
+        const length = data.data.ticker.close.length;
+        if (length > 1) {
+            const lastClose = data.data.ticker.close[length - 1];
+            const prevClose = data.data.ticker.close[length - 2];
+            const priceChange = lastClose - prevClose;
+            const priceChangePercent = (priceChange / prevClose) * 100;
+
+            setStockInfo({
+                lastClose,
+                lastOpen: data.data.ticker.open[length - 1],
+                lastHigh: data.data.ticker.high[length - 1],
+                lastLow: data.data.ticker.low[length - 1],
+                lastVolume: data.data.ticker.volume[length - 1],
+                priceChange,
+                priceChangePercent,
+            });
+        }
+    }, [data, graphType]);
+
+    const hasData = chartData.datasets.length > 0 && chartData.labels.length > 0;
 
     return (
-        <div>
-            <div className={styles.securitiesPage}>
-                <div className={styles.chartWrapper}>
-                    <div className={styles.securitiesForm}>
+        <div className={styles.securitiesPage}>
+            <div className={styles.chartWrapper}>
+                <div className={styles.securitiesHeader}>
+                    <div className={styles.headerInfo}>
                         <div className={styles.searchContainer}>
                             <input
                                 type="text"
                                 value={companyName}
                                 onChange={(e) => setCompanyName(e.target.value)}
-                                placeholder="Enter company name"
+                                placeholder="Search stock..."
                                 className={styles.securitiesInput}
                             />
-                            <button onClick={handleSearch} className={styles.securitiesBtn}>Search Ticker</button>
+                            <button onClick={handleSearch} className={styles.securitiesBtn}>Search</button>
                         </div>
-                        {error && <p className={styles.securitiesError}>{error}</p>}
-                        {tickerInfo && (
-                            <h2 className={styles.securitiesTitle}>{tickerInfo.company_name} ({tickerInfo.short_company_name})</h2>
+                        {tickerInfo && hasData && stockInfo && (
+                            <div className={styles.stockInfo}>
+                                <span className={styles.stockName}>{tickerInfo.company_name}</span>
+                                <span className={styles.stockPrice}>{stockInfo.lastClose.toFixed(2)} RUB</span>
+                                <span className={stockInfo.priceChange > 0 ? styles.positiveChange : styles.negativeChange}>
+                                    {stockInfo.priceChange.toFixed(2)} ({stockInfo.priceChangePercent.toFixed(2)}%)
+                                </span>
+                                <span className={styles.stockDetail}>Open: {stockInfo.lastOpen.toFixed(2)}</span>
+                                <span className={styles.stockDetail}>High: {stockInfo.lastHigh.toFixed(2)}</span>
+                                <span className={styles.stockDetail}>Low: {stockInfo.lastLow.toFixed(2)}</span>
+                                <span className={styles.stockDetail}>Vol: {stockInfo.lastVolume}</span>
+                            </div>
                         )}
                         {tickerInfo && (
                             <div className={styles.filtersContainer}>
                                 <label className={styles.securitiesLabel}>
-                                    Date From:
-                                    <input
-                                        type="date"
-                                        value={dateFrom}
-                                        onChange={(e) => setDateFrom(e.target.value)}
-                                        className={styles.securitiesInput}
-                                    />
+                                    From:
+                                    <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={styles.securitiesInput} />
                                 </label>
                                 <label className={styles.securitiesLabel}>
-                                    Date Till:
-                                    <input
-                                        type="date"
-                                        value={dateTill}
-                                        onChange={(e) => setDateTill(e.target.value)}
-                                        className={styles.securitiesInput}
-                                    />
+                                    Till:
+                                    <input type="date" value={dateTill} onChange={(e) => setDateTill(e.target.value)} className={styles.securitiesInput} />
                                 </label>
                                 <label className={styles.securitiesLabel}>
                                     Interval:
                                     <select value={interval} onChange={(e) => setInterval(e.target.value)} className={styles.securitiesSelect}>
-                                        <option value="1">1 Minute</option>
-                                        <option value="10">10 Minutes</option>
-                                        <option value="60">1 Hour</option>
-                                        <option value="24">1 Day</option>
-                                        <option value="7">1 Week</option>
-                                        <option value="31">1 Month</option>
-                                        <option value="4">1 Quarter</option>
+                                        <option value="1">1 min</option>
+                                        <option value="10">10 min</option>
+                                        <option value="60">1 hour</option>
+                                        <option value="24">1 day</option>
+                                        <option value="7">1 week</option>
+                                        <option value="31">1 month</option>
+                                        <option value="4">1 quarter</option>
                                     </select>
                                 </label>
+                                <button onClick={handleFetch} className={styles.securitiesBtn}>Update</button>
                             </div>
                         )}
-                        {tickerInfo && (
-                            <button onClick={handleFetch} className={styles.securitiesBtn}>Fetch Data</button>
-                        )}
                     </div>
-                    <div className={styles.securitiesChartContainer}>
-                        {tickerInfo && (
-                            <button onClick={() => setGraphType(graphType === 'normal' ? 'candlestick' : 'normal')} className={styles.securitiesBtn}>
-                                Switch to {graphType === 'normal' ? 'Candlestick' : 'Line'}
-                            </button>
-                        )}
+                    {error && <p className={styles.securitiesError}>{error}</p>}
+                </div>
+                <div className={styles.securitiesChartContainer}>
+                    {hasData ? (
                         <ChartComponent
+                            type="line"
                             data={chartData}
                             options={{
                                 responsive: true,
                                 maintainAspectRatio: false,
+                                interaction: {
+                                    mode: 'index',
+                                    intersect: false,
+                                },
                                 plugins: {
-                                    legend: { position: 'bottom' },
+                                    legend: { position: 'bottom' as const },
                                     title: {
                                         display: true,
-                                        text: 'Stock Data Chart',
-                                        font: { size: 20 },
+                                        text: tickerInfo?.company_name || 'Stock Analysis Chart',
+                                        font: { size: 22, weight: 'bold' },
+                                        color: '#ffffff',
                                     },
                                 },
                                 scales: {
                                     x: {
-                                        title: { display: true, text: 'Date' },
-                                        ticks: { font: { size: 10 } },
-                                        grid: { display: true },
+                                        type: 'time',
+                                        time: {
+                                            unit: 'day',
+                                            displayFormats: {
+                                                day: 'dd MMM',
+                                            },
+                                        },
+                                        title: { display: true, text: 'Date', color: '#ffffff', font: { size: 14 } },
+                                        ticks: { color: '#cccccc', font: { size: 10 } },
+                                        grid: { color: 'rgba(255,255,255,0.1)' },
                                     },
                                     y: {
-                                        title: { display: true, text: 'Price' },
-                                        ticks: { font: { size: 10 } },
-                                        grid: { display: true },
+                                        title: { display: true, text: 'Price (RUB)', color: '#ffffff', font: { size: 14 } },
+                                        ticks: { color: '#cccccc', font: { size: 10 } },
+                                        grid: { color: 'rgba(255,255,255,0.1)' },
                                     },
                                 },
                             }}
                         />
-                        {data && data.prediction && (
-                            <div className={styles.securitiesPrediction}>
-                                <h3>Price Prediction</h3>
-                                <p>Next Price: {data.prediction.next_price.toFixed(2)}</p>
-                                <p>
-                                    Price Diff: {data.prediction.price_diff.toFixed(2)}
-                                    <span className={data.prediction.price_diff > 0 ? styles.up : styles.down}>
+                    ) : (
+                        <div className={styles.noDataMessage}>
+                            {tickerInfo ? 'Нажмите Update, чтобы загрузить данные' : 'Найдите компанию и загрузите данные'}
+                        </div>
+                    )}
+
+                    <button
+                        onClick={() => setGraphType(graphType === 'normal' ? 'candlestick' : 'normal')}
+                        className={styles.graphTypeBtn}
+                        title={graphType === 'normal' ? 'Переключить на свечи' : 'Переключить на линии'}
+                    >
+                        {graphType === 'normal' ? '🕯️' : '📈'}
+                    </button>
+
+                    {data && data.prediction && (
+                        <div className={styles.predictionWrapper}>
+                            <button className={styles.predictionToggle} onClick={() => setShowPrediction(!showPrediction)}>
+                                Prediction {showPrediction ? '▼' : '▶'}
+                            </button>
+                            {showPrediction && (
+                                <div className={styles.securitiesPrediction}>
+                                    <h3>AI Price Prediction</h3>
+                                    <p className={styles.predNext}>Next: <span className={styles.highlight}>{data.prediction.next_price.toFixed(2)} RUB</span></p>
+                                    <p className={data.prediction.price_diff > 0 ? styles.up : styles.down}>
+                                        Diff: {data.prediction.price_diff.toFixed(2)} RUB
                                         {data.prediction.price_diff > 0 ? ' ↑' : ' ↓'}
-                                    </span>
-                                </p>
-                            </div>
-                        )}
-                    </div>
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
             <Footer />
