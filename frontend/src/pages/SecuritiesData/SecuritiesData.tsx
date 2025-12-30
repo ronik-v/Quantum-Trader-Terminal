@@ -93,15 +93,19 @@ export function SecuritiesData(): JSX.Element {
     }
 
     useEffect(() => {
-        if (tickerInfo) void handleFetch();
+        if (tickerInfo) {
+            handleFetch().catch(e => console.error(e));
+        }
     }, [tickerInfo, dateFrom, dateTill, interval]);
 
     useEffect(() => {
-        const refreshInterval = setInterval(() => {
-            if (tickerInfo) void handleFetch();
+        const refreshInterval = window.setInterval(() => {
+            if (tickerInfo) {
+                handleFetch().catch(e => console.error(e));
+            }
         }, 60000);
 
-        return () => clearInterval(refreshInterval);
+        return () => window.clearInterval(refreshInterval);
     }, [tickerInfo, dateFrom, dateTill, interval]);
 
     useEffect(() => {
@@ -376,7 +380,7 @@ export function SecuritiesData(): JSX.Element {
                 display: !!tickerInfo,
                 text: tickerInfo?.company_name || '',
                 color: '#ffffff',
-                font: { size: 18, weight: '600' }
+                font: { size: 18, weight: 600 }
             },
             zoom: {
                 zoom: { wheel: { enabled: true }, pinch: { enabled: true }, drag: { enabled: true }, mode: 'xy' },
