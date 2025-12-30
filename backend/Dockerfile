@@ -31,7 +31,7 @@ COPY --from=builder /usr/src/app/target/release/terminal_q_backend /usr/local/bi
 
 WORKDIR /app
 
-EXPOSE 9999
+EXPOSE 9090
 
 ENV RUST_LOG=info
 
