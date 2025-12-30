@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: qt_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-qtuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qtpass}
+      POSTGRES_DB: ${POSTGRES_DB:-qt_db}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-qtuser} -d ${POSTGRES_DB:-qt_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: qt_backend
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "9999:9999"
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER:-qtuser}:${POSTGRES_PASSWORD:-qtpass}@db:5432/${POSTGRES_DB:-qt_db}"
+      RUST_LOG: ${RUST_LOG:-info}
+    env_file:
+      - ./backend/.env
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: qt_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  db_data:
