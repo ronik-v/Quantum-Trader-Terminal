@@ -29,7 +29,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "9090:9090"  # Уберите для production, если не нужен внешний доступ
+      - "9090:9090"
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER:-qtuser}:${POSTGRES_PASSWORD:-qtpass}@db:5432/${POSTGRES_DB:-qt_db}"
       RUST_LOG: ${RUST_LOG:-info}
