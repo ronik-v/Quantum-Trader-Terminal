@@ -47,7 +47,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx_http.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
 volumes:
   db_data:
