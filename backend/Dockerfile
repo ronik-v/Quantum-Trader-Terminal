@@ -12,11 +12,12 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY Cargo.toml Cargo.lock ./
+COPY src/main.rs src/main.rs
 RUN cargo fetch --locked
-
 COPY . .
 
 RUN cargo build --release --bin terminal_q_backend
+
 FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update \
