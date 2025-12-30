@@ -1,73 +1,44 @@
 # Quantum Trader Terminal
 
-A trading terminal with the capability to connect trading bots and visualize portfolio data.
+A trading terminal focused on market analysis and price forecasting using technical indicators and statistical models.
+
+## Description
+
+The project visualizes asset price charts, calculates **SMA(5)** and **SMA(12)** indicators, and applies **GARCH** and **ARIMA** models to forecast the next time unit (e.g., the next candle). These forecasts and indicator signals help inform trading decisions.
+
+The application features a user-friendly dashboard with charts, indicators, and predictions. In the current version, only authentication is implemented — additional settings (model parameters, exchange connections, etc.) are not yet available and will be added in future updates.
 
 ## Technologies
 
 ### Backend
-- Java + Spring Boot
-- WebSockets
-- PostgreSQL
+- Rust
 
 ### Frontend
-- ReactJS
+- React
+- TypeScript
 
-##  Interface
+## Interface
 
-### View 1: Overall Chart and Trade Summary
-- **Portfolio value chart** for the selected period (zoom-in/zoom-out)
-- **Trade markers** (color-coded: green — profit, red — loss)
-- **Sidebar with tickers**: current indicators, volumes, bot status
+### Main View: Chart and Analysis Dashboard
+- **Interactive price chart** for the selected period (with zoom in/out support)
+- Display of **SMA(5)** and **SMA(12)** lines
+- Markers for SMA crossover signals (e.g., golden/death cross)
+- Forecast for the next time unit using **GARCH** and **ARIMA** models
+- Convenient sidebar showing current indicator values, model outputs, and recommendations
 
-### View 2: Transaction History
-- Table with columns: `date`, `ticker`, `type`, `quantity`, `price`, `result`
-- Filtering: by date, ticker, operation type
-- Pagination
+### Authentication
+- Login screen
 
-### View 3: Trading Bot Selection
-- List of strategies with a brief description
-- Upon selection — a window with:
-    - parameters
-    - indicators
-    - performance history
-- Bot launch button
-
-###  View 4: Settings
-- Input field for Tinkoff API token, connection test button
-- Theme switch (dark/light)
-- Data refresh rate, notification settings, etc.
+### Upcoming Features (in development)
+- Trade history
+- Trading bot selection and launch
+- Settings (API tokens, themes, model parameters)
 
 ---
+## Screenshots
 
-## Navigation Diagram
+### Authentication Screen
+![Authentication Screen](public/auth_screen.png)
 
-```mermaid
-flowchart TD
-
-%% --- MAIN NAVIGATION ---
-subgraph Application Navigation
-    Start["🔒 Main Menu"] --> Portfolio["📈 Overall Chart and Trade Summary"]
-    Start --> History["📜 Transaction History"]
-    Start --> Bots["🤖 Trading Bot Selection"]
-    Start --> Settings["⚙️ Settings"]
-
-    Portfolio --> Chart["📊 Portfolio Value Chart"]
-    Portfolio --> Markers["📍 Trade Markers on Chart"]
-    Portfolio --> Tickers["🗂️ Sidebar with Tickers"]
-
-    History --> Table["📑 Transaction Table"]
-    History --> Filters["🔎 Filters by Date/Ticker"]
-    History --> Pages["📄 Pagination"]
-
-    Bots --> BotCards["🧠 List of Strategies"]
-    BotCards --> BotDetails["📃 Detailed Strategy Description"]
-    BotDetails --> BotLaunch["🚀 Launch Button"]
-
-    Settings --> Token["🔐 Input Tinkoff API Token"]
-    Settings --> UITheme["🎨 Choose Interface Theme"]
-    Settings --> GeneralSettings["🛠️ General Settings"]
-end
-
-%% Styles
-classDef main fill:#eef,stroke:#333,stroke-width:2px;
-class Start,Portfolio,History,Bots,Settings main
+### Main Data Screen
+![Main Data Screen](public/data_screen.png)
