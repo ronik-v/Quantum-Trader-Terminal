@@ -1,4 +1,5 @@
-FROM rust:1.72-slim AS builder
+FROM rust:latest AS builder
+
 WORKDIR /usr/src/app
 
 RUN apt-get update \
@@ -12,9 +13,10 @@ RUN apt-get update \
 
 COPY Cargo.toml Cargo.lock ./
 RUN cargo fetch --locked
-COPY . .
-RUN cargo build --release --bin terminal_q_backend
 
+COPY . .
+
+RUN cargo build --release --bin terminal_q_backend
 FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update \
@@ -23,9 +25,13 @@ RUN apt-get update \
      libssl3 \
      libpq5 \
   && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /usr/src/app/target/release/terminal_q_backend /usr/local/bin/terminal_q_backend
+
 WORKDIR /app
+
 EXPOSE 9999
+
 ENV RUST_LOG=info
 
 CMD ["/usr/local/bin/terminal_q_backend"]
